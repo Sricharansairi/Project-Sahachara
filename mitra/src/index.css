@@ -1,0 +1,464 @@
+/* MITRA — Pure Black Theme & Publication-Grade Gemini UI */
+
+:root {
+  --bg-pure-black: #000000;
+  --bg-card: rgba(8, 8, 12, 0.88);
+  --bg-card-hover: rgba(16, 16, 24, 0.92);
+  --bg-pill: rgba(12, 12, 18, 0.75);
+  
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-highlight: rgba(255, 255, 255, 0.16);
+  --border-focus: rgba(99, 102, 241, 0.5);
+
+  --accent-cyan: #38bdf8;
+  --accent-blue: #60a5fa;
+  --accent-indigo: #818cf8;
+  --accent-purple: #c084fc;
+  --accent-pink: #f472b6;
+  --accent-amber: #fbbf24;
+  --accent-emerald: #34d399;
+
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --radius-full: 9999px;
+  --radius-pill: 28px;
+  --radius-card: 20px;
+  --radius-btn: 12px;
+
+  --font-display: 'Outfit', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-body);
+  background: transparent;
+  color: var(--text-primary);
+  user-select: none;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── APP WRAPPER & DRAG REGION ─────────────────────────────────────────── */
+.mitra-app-window {
+  width: 380px;
+  max-height: 94vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-pure-black);
+  border: 1px solid var(--border-subtle);
+  border-radius: 32px;
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 24px 60px -12px rgba(0, 0, 0, 0.95),
+    0 0 40px -8px rgba(79, 70, 229, 0.22);
+  backdrop-filter: blur(40px);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mitra-app-window::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+  pointer-events: none;
+}
+
+/* ─── HEADER ────────────────────────────────────────────────────────────── */
+.mitra-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 10px;
+  cursor: grab;
+}
+
+.mitra-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mitra-gemini-sparkle {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.mitra-gemini-sparkle svg {
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.7));
+}
+
+.mitra-title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.mitra-title-text {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, #ffffff 30%, #a5b4fc 70%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.mitra-subtitle {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.mitra-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-button {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.icon-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: var(--border-highlight);
+  transform: scale(1.05);
+}
+
+/* ─── ORB SHOWCASE STAGE ────────────────────────────────────────────────── */
+.orb-stage-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0 16px;
+  position: relative;
+}
+
+.orb-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.orb-status-pill.idle {
+  background: rgba(30, 27, 75, 0.4);
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.orb-status-pill.active {
+  background: rgba(14, 116, 144, 0.35);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+}
+
+.orb-status-pill.speaking {
+  background: rgba(88, 28, 135, 0.4);
+  color: #d8b4fe;
+  border-color: rgba(192, 132, 252, 0.4);
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.25);
+}
+
+.orb-status-pill.thinking {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(236, 72, 153, 0.3));
+  color: #fbcfe8;
+  border-color: rgba(244, 114, 182, 0.45);
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.3);
+  animation: pulse-border 2s ease infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(244, 114, 182, 0.45); }
+  50% { border-color: rgba(56, 189, 248, 0.7); }
+}
+
+.status-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.7); opacity: 0.5; }
+}
+
+/* ─── DYNAMIC PROMPT PILL (Gemini Style) ────────────────────────────────── */
+.dynamic-prompt-pill {
+  margin: 0 20px 14px;
+  background: rgba(15, 15, 22, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.prompt-icon {
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+}
+
+.prompt-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── ACTION BUTTONS ────────────────────────────────────────────────────── */
+.primary-actions-row {
+  display: flex;
+  gap: 8px;
+  padding: 0 20px 16px;
+}
+
+.btn-gemini-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-btn);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-gemini-wake {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #2563eb 100%);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+}
+
+.btn-gemini-wake:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.5);
+  filter: brightness(1.1);
+}
+
+.btn-gemini-sleep {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}
+
+.btn-gemini-sleep:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: var(--border-highlight);
+}
+
+/* ─── TABS HEADER ───────────────────────────────────────────────────────── */
+.drawer-tabs {
+  display: flex;
+  border-top: 1px solid var(--border-subtle);
+  background: rgba(5, 5, 8, 0.9);
+  padding: 2px 8px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.tab-btn.active {
+  color: var(--accent-cyan);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tab-btn:hover:not(.active) {
+  color: var(--text-secondary);
+}
+
+/* ─── EXPANDABLE CONTENT DRAWER ─────────────────────────────────────────── */
+.drawer-content {
+  padding: 14px 20px 18px;
+  background: rgba(4, 4, 6, 0.95);
+  max-height: 220px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.drawer-content::-webkit-scrollbar {
+  width: 4px;
+}
+.drawer-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+/* ─── BIOMETRIC VOICEPRINT CARD ─────────────────────────────────────────── */
+.voiceprint-card {
+  background: rgba(15, 15, 24, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.voiceprint-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.voiceprint-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-verified {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.badge-unregistered {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.calibration-prompt-box {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 12px;
+  color: #e2e8f0;
+  font-style: italic;
+  text-align: center;
+  margin: 6px 0;
+}
+
+/* ─── TELEMETRY & DIAGNOSTICS ───────────────────────────────────────────── */
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.telemetry-cell {
+  background: rgba(12, 12, 18, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.telemetry-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.telemetry-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* ─── FOOTER HOTKEY TIP ─────────────────────────────────────────────────── */
+.mitra-footer-tip {
+  padding: 8px 20px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.kbd-badge {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: #cbd5e1;
+}

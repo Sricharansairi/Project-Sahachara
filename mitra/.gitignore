@@ -1,0 +1,32 @@
+# Rust
+target/
+Cargo.lock
+
+# Node
+node_modules/
+dist/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ONNX Models (too large for git, download separately)
+models/*.onnx
+
+# DB files
+*.db
+*.db-shm
+*.db-wal
+
+# Build outputs
+*.exe
+*.msi
+
+# Python
+__pycache__/
+*.pyc
+.venv/

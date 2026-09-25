@@ -1,0 +1,73 @@
+[package]
+name = "mitra"
+version = "0.1.0"
+description = "MITRA - Project Sahachara AI Companion (Phase 1: Foundation Shell)"
+authors = ["Project Sahachara Team"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "mitra_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "mitra"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Tauri core
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-shell = "2"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Audio capture
+cpal = "0.15"
+
+# ONNX Runtime (for Silero VAD + ECAPA-TDNN)
+ort = { version = "2.0.0-rc.13", features = ["directml", "ndarray"] }
+ndarray = "0.17"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Database (SQLite with bundled build - encryption key managed via Keyring)
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# Keyring (Windows Credential Locker)
+keyring = "3"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Networking (TCP IPC to wake word Python server)
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+
+# Utilities
+anyhow = "1"
+thiserror = "2.0"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+bytemuck = "1"
+hound = "3"  # WAV file I/O for test fixtures
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 1   # faster incremental builds in dev
