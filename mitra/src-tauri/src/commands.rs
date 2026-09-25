@@ -285,3 +285,218 @@ pub async fn is_voiceprint_enrolled(state: State<'_, AppState>) -> Result<bool, 
     let store = state.store.lock().await;
     Ok(store.is_voiceprint_enrolled())
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 3: Permissions & Screen Capture & Auth Commands
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn get_permission(state: State<'_, AppState>, name: String) -> Result<bool, String> {
+    let store = state.store.lock().await;
+    store.get_permission(&name).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn set_permission(
+    state: State<'_, AppState>,
+    name: String,
+    granted: bool,
+) -> Result<(), String> {
+    let store = state.store.lock().await;
+    store.set_permission(&name, granted).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn auth_start_flow(provider: String) -> Result<(String, String), String> {
+    let prov = match provider.to_lowercase().as_str() {
+        "google" => crate::auth::OAuthProvider::Google,
+        "microsoft365" | "microsoft" | "ms365" => crate::auth::OAuthProvider::Microsoft365,
+        "apple" => crate::auth::OAuthProvider::Apple,
+        _ => return Err(format!("Unsupported provider: {}", provider)),
+    };
+    let storage = std::sync::Arc::new(crate::auth::KeyringTokenStorage::new());
+    let manager = crate::auth::OAuthManager::new(storage);
+    Ok(manager.start_flow(prov))
+}
+
+#[tauri::command]
+pub async fn auth_exchange_code(
+    state: String,
+    code: String,
+) -> Result<crate::auth::TokenBundle, String> {
+    let storage = std::sync::Arc::new(crate::auth::KeyringTokenStorage::new());
+    let manager = crate::auth::OAuthManager::new(storage);
+    manager.exchange_code(&state, &code).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn auth_silent_refresh(provider: String) -> Result<crate::auth::TokenBundle, String> {
+    let prov = match provider.to_lowercase().as_str() {
+        "google" => crate::auth::OAuthProvider::Google,
+        "microsoft365" | "microsoft" | "ms365" => crate::auth::OAuthProvider::Microsoft365,
+        "apple" => crate::auth::OAuthProvider::Apple,
+        _ => return Err(format!("Unsupported provider: {}", provider)),
+    };
+    let storage = std::sync::Arc::new(crate::auth::KeyringTokenStorage::new());
+    let manager = crate::auth::OAuthManager::new(storage);
+    manager.get_valid_token(prov).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn screen_set_shutter(active: bool) -> Result<(), String> {
+    let win_mgr = std::sync::Arc::new(crate::screen::WindowManager::new().with_mock_displays());
+    let engine = crate::screen::ScreenCaptureEngine::new(win_mgr);
+    engine.set_on_demand_shutter(active);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn screen_capture_focused() -> Result<crate::screen::CapturePayload, String> {
+    let win_mgr = std::sync::Arc::new(crate::screen::WindowManager::new().with_mock_displays());
+    let engine = crate::screen::ScreenCaptureEngine::new(win_mgr);
+    engine.set_on_demand_shutter(true);
+    engine.capture_focused_window(None).map_err(|e| e.to_string())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 4: Voice Pipeline IPC Commands
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Relay a raw audio buffer (base64 WAV) to the backend STT endpoint.
+/// Returns the transcript string.
+/// The Rust side handles: base64 encode → POST /api/v1/voice/transcribe → return transcript.
+#[tauri::command]
+pub async fn voice_transcribe(
+    state: State<'_, AppState>,
+    audio_b64: String,
+    sample_rate: u32,
+) -> Result<serde_json::Value, String> {
+    let url = "http://127.0.0.1:8766/api/v1/voice/transcribe";
+
+    let body = serde_json::json!({
+        "audio_b64": audio_b64,
+        "sample_rate": sample_rate,
+        "channels": 1,
+        "language": "en",
+    });
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(url)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("STT request failed: {}", e))?;
+
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("STT response parse failed: {}", e))?;
+
+    info!("voice_transcribe — transcript={:?}", json.get("transcript"));
+    let _ = state; // accessed to validate state is available
+    Ok(json)
+}
+
+/// Synthesize text → audio via backend TTS endpoint.
+/// Returns base64-encoded WAV audio bytes.
+#[tauri::command]
+pub async fn voice_synthesize(
+    state: State<'_, AppState>,
+    text: String,
+    voice: Option<String>,
+    speed: Option<f32>,
+) -> Result<serde_json::Value, String> {
+    let url = "http://127.0.0.1:8766/api/v1/tts/synthesize";
+
+    let body = serde_json::json!({
+        "text": text,
+        "voice": voice.unwrap_or_else(|| "af_bella".to_string()),
+        "speed": speed.unwrap_or(1.0),
+    });
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(url)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("TTS request failed: {}", e))?;
+
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("TTS response parse failed: {}", e))?;
+
+    info!("voice_synthesize — latency_ms={:?}", json.get("latency_ms"));
+    let _ = state;
+    Ok(json)
+}
+
+/// Run the full voice pipeline (STT→LLM→TTS) for a captured audio buffer.
+/// Returns session metadata + first latency profile.
+/// Real-time SSE chunks are delivered via the EventSource opened by the frontend.
+#[tauri::command]
+pub async fn voice_pipeline_run(
+    state: State<'_, AppState>,
+    audio_b64: String,
+    conversation_id: Option<String>,
+    screen_payload: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let url = "http://127.0.0.1:8766/api/v1/voice/pipeline";
+
+    let body = serde_json::json!({
+        "audio_b64": audio_b64,
+        "sample_rate": 16000,
+        "conversation_id": conversation_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+        "screen_payload": screen_payload.unwrap_or_default(),
+        "voice": "af_bella",
+        "tts_speed": 1.0,
+        "enable_tts": true,
+    });
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(url)
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(60))
+        .send()
+        .await
+        .map_err(|e| format!("Pipeline request failed: {}", e))?;
+
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("Pipeline response parse failed: {}", e))?;
+
+    info!(
+        "voice_pipeline_run — session={:?}, total_ms={:?}",
+        json.get("session_id"),
+        json.pointer("/latency/total_ms")
+    );
+    let _ = state;
+    Ok(json)
+}
+
+/// Query AEC gate status (for frontend privacy ring display).
+#[tauri::command]
+pub async fn aec_status(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    // TtsPlayer stores AecGate state; here we check via the AppState tts_player field
+    // (added in lib.rs Phase 4 update). Gracefully handle if not yet initialized.
+    let is_muted = state.aec_gate.is_muted();
+    let tts_playing = state.tts_player.is_playing().await;
+
+    Ok(serde_json::json!({
+        "aec_active": is_muted,
+        "tts_playing": tts_playing,
+    }))
+}
+
+/// Interrupt current TTS playback (barge-in from frontend).
+#[tauri::command]
+pub async fn voice_interrupt(state: State<'_, AppState>) -> Result<bool, String> {
+    let interrupted = state.tts_player.interrupt().await;
+    info!("voice_interrupt — result={}", interrupted);
+    Ok(interrupted)
+}
+

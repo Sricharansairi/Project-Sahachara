@@ -1,408 +1,340 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { ThinkingOrb } from "./ThinkingOrb";
-import { AudioVisualizer } from "./AudioVisualizer";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Mic,
+  MicOff,
+  SlidersHorizontal,
+  Shield,
+  Volume2,
+  VolumeX,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+  Zap,
+} from "lucide-react";
 
-const CALIBRATION_PROMPTS = [
-  "Hey Mitra, what's on my screen?",
-  "Okay Mitra, follow up on this email.",
-  "Hey Mitra, remind me at 4 PM.",
-];
-
-interface WakeWordEvent {
-  phrase: string;
-  score: number;
-  stage2_verified: boolean;
-}
-
-interface StateChangedPayload {
-  state: string;
-  timestamp_ms: number;
-}
+import { GeminiThinkingOrb } from "./components/GeminiThinkingOrb";
+import {
+  UndoActionCard,
+  MeetingDossierCard,
+  GhostRadarCard,
+  ClipboardAugmenterCard,
+} from "./components/ActionCards";
+import { PermissionConsentModal } from "./components/PermissionConsentModal";
+import { useMitraStore, MitraStateType } from "./store/useMitraStore";
 
 export default function App() {
-  const [mitraState, setMitraState] = useState<string>("IdleSleep");
-  const [audioLevel, setAudioLevel] = useState<number>(0);
-  const [lastWakeEvent, setLastWakeEvent] = useState<WakeWordEvent | null>(null);
-  const [activeTab, setActiveTab] = useState<"live" | "biometrics" | "telemetry">("live");
-  const [calibrationStep, setCalibrationStep] = useState<number>(-1);
-  const [calibrationStatus, setCalibrationStatus] = useState<string>("");
-  const [isEnrolled, setIsEnrolled] = useState<boolean>(false);
-  const [recentEvents, setRecentEvents] = useState<string[]>([
-    "MITRA Core Engine initialized",
-    "Silero VAD (32ms frame) active",
-    "OpenWakeWord 80ms detection active",
-  ]);
+  const {
+    mitraState,
+    setMitraState,
+    audioLevel,
+    setAudioLevel,
+    aecActive,
+    setAecActive,
+    transcript,
+    setTranscript,
+    activeAction,
+    setActiveAction,
+    dossier,
+    setDossier,
+    commitments,
+    setCommitments,
+    clipboardData,
+    setClipboardData,
+    rollbackAction,
+  } = useMitraStore();
 
-  // Check enrollment status on mount
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [showConsentModal, setShowConsentModal] = useState<boolean>(false);
+  const [recentLog, setRecentLog] = useState<string>("Core Engine Online");
+
+  // Keyboard shortcut Ctrl+Z for 10-Second Undo Buffer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        rollbackAction();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [rollbackAction]);
+
+  // Initial Tauri check and mock seed if running in browser
   useEffect(() => {
     invoke<boolean>("is_voiceprint_enrolled")
-      .then(setIsEnrolled)
-      .catch((err) => console.warn("Tauri invoke offline or mock:", err));
-  }, []);
+      .then((enrolled) => {
+        if (!enrolled) {
+          setShowConsentModal(true);
+        }
+      })
+      .catch(() => {
+        // Browser development preview: seed sample action and dossier for verification
+        setTimeout(() => {
+          setActiveAction({
+            actionId: "act_sample_01",
+            actionType: "draft_email",
+            title: "Draft Reply to John Smith",
+            description: "Reviewed Q3 report and sent feedback for Friday's sprint review.",
+            expiresAt: Date.now() + 10000,
+            status: "in_undo_window",
+          });
 
-  // Listen for Tauri events
+          setDossier({
+            eventId: "evt_001",
+            title: "Sahachara Product Sync with Sarah",
+            attendees: ["sarah.chen@example.com", "user@example.com"],
+            bullets: [
+              "Align on Project Sahachara beta release milestones.",
+              "Review Sarah Chen's Figma Dynamic Island design specs.",
+              "Sign off on voice pipeline latency targets (P50 < 400ms).",
+            ],
+            generatedAt: new Date().toISOString(),
+          });
+
+          setCommitments([
+            {
+              id: "com_01",
+              party: "alex@company.com",
+              description: "Send updated pitch deck by Friday afternoon",
+              dueDate: new Date(Date.now() + 86400000).toISOString(),
+              direction: "outbound",
+              status: "pending",
+            },
+          ]);
+        }, 1200);
+      });
+  }, [setActiveAction, setDossier, setCommitments]);
+
+  // Listen to Tauri Core events
   useEffect(() => {
     const unlisteners: Array<() => void> = [];
 
-    listen<StateChangedPayload>("state-changed", (e) => {
-      setMitraState(e.payload.state);
-      setRecentEvents((prev) => [
-        `State: ${e.payload.state.replace(/([A-Z])/g, " $1").trim()} (${new Date().toLocaleTimeString()})`,
-        ...prev.slice(0, 5),
-      ]);
+    listen<{ state: string }>("state-changed", (e) => {
+      setMitraState(e.payload.state as MitraStateType);
+      setRecentLog(`State: ${e.payload.state}`);
     }).then((u) => unlisteners.push(u)).catch(() => {});
 
     listen<{ level: number }>("audio-level-update", (e) => {
-      setAudioLevel(Math.min(e.payload.level * 22, 1));
+      setAudioLevel(Math.min(e.payload.level * 20, 1));
     }).then((u) => unlisteners.push(u)).catch(() => {});
 
-    listen<WakeWordEvent>("wake-word-detected", (e) => {
-      setLastWakeEvent(e.payload);
-      setRecentEvents((prev) => [
-        `🎙️ Wake Word: "${e.payload.phrase}" (Conf: ${(e.payload.score * 100).toFixed(0)}%) - Stage2: ${e.payload.stage2_verified ? "PASSED" : "REJECTED"}`,
-        ...prev.slice(0, 5),
-      ]);
+    listen<{ phrase: string; score: number }>("wake-word-detected", (e) => {
+      setMitraState("ActiveListening");
+      setRecentLog(`Wake Word: ${e.payload.phrase} (${Math.round(e.payload.score * 100)}%)`);
     }).then((u) => unlisteners.push(u)).catch(() => {});
 
     return () => unlisteners.forEach((u) => u());
-  }, []);
+  }, [setMitraState, setAudioLevel]);
 
-  const handleToggleWake = useCallback(() => {
+  const toggleWakeListening = useCallback(() => {
     if (mitraState.includes("IdleSleep")) {
-      invoke("manual_wake").catch(() => setMitraState("ActiveListening"));
+      invoke("manual_wake").catch(() => {});
+      setMitraState("ActiveListening");
+      setRecentLog("Manual Wake: Listening");
     } else {
-      invoke("manual_sleep").catch(() => setMitraState("IdleSleep"));
+      invoke("manual_sleep").catch(() => {});
+      setMitraState("IdleSleep");
+      setRecentLog("Manual Sleep: Standby");
     }
-  }, [mitraState]);
+  }, [mitraState, setMitraState]);
 
-  const handleStartCalibration = useCallback(async () => {
-    try {
-      await invoke("start_calibration");
-      setCalibrationStep(0);
-      setCalibrationStatus("Ready — speak the prompt below, then click Record");
-    } catch {
-      setCalibrationStep(0);
-      setCalibrationStatus("Ready (Dev mode) — speak prompt and record");
+  const getStateBadge = () => {
+    if (mitraState.includes("DeepProcessing") || mitraState.includes("Thinking")) {
+      return { label: "Thinking", color: "text-purple-400 bg-purple-500/10 border-purple-500/20" };
     }
-  }, []);
-
-  const handleRecordPrompt = useCallback(async () => {
-    if (calibrationStep < 0 || calibrationStep > 2) return;
-    try {
-      const result = await invoke<string>("record_calibration_prompt", {
-        promptIndex: calibrationStep,
-      });
-      setCalibrationStatus(result);
-      if (calibrationStep < 2) {
-        setCalibrationStep(calibrationStep + 1);
-      } else {
-        await invoke("finish_calibration");
-        setCalibrationStep(-1);
-        setCalibrationStatus("Voiceprint verified & enrolled in Secure DB");
-        setIsEnrolled(true);
-      }
-    } catch {
-      // Stub fallback for instant UI response in dev preview
-      if (calibrationStep < 2) {
-        setCalibrationStep(calibrationStep + 1);
-        setCalibrationStatus(`Prompt ${calibrationStep + 1} recorded successfully`);
-      } else {
-        setCalibrationStep(-1);
-        setCalibrationStatus("Voiceprint enrolled in Secure DB");
-        setIsEnrolled(true);
-      }
+    if (mitraState.includes("ActiveListening") || mitraState.includes("UserSpeaking") || mitraState.includes("Waking")) {
+      return { label: "Listening", color: "text-sky-400 bg-sky-500/10 border-sky-500/20" };
     }
-  }, [calibrationStep]);
-
-  const handleResetVoiceprint = useCallback(async () => {
-    try {
-      await invoke("reset_voiceprint");
-      setIsEnrolled(false);
-      setCalibrationStatus("Voiceprint reset");
-    } catch (e) {
-      console.error(e);
+    if (mitraState.includes("AgentSpeaking") || mitraState.includes("Speaking")) {
+      return { label: "Speaking", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" };
     }
-  }, []);
+    return { label: "Standby", color: "text-neutral-400 bg-white/5 border-white/10" };
+  };
 
-  // UI state styling
-  const isIdle = mitraState.includes("IdleSleep");
-  const isListening = mitraState.includes("ActiveListening") || mitraState.includes("UserSpeaking");
-  const isThinking = mitraState.includes("DeepProcessing");
-  const isSpeaking = mitraState.includes("AgentSpeaking");
-
-  let statusClass = "idle";
-  let statusLabel = "Idle & Listening for Wake Word";
-  if (isThinking) {
-    statusClass = "thinking";
-    statusLabel = "Deep Processing (Thinking Mode)";
-  } else if (isSpeaking) {
-    statusClass = "speaking";
-    statusLabel = "Agent Speaking";
-  } else if (isListening) {
-    statusClass = "active";
-    statusLabel = mitraState.includes("UserSpeaking") ? "User Speaking..." : "Listening...";
-  }
+  const badge = getStateBadge();
 
   return (
-    <div className="mitra-app-window">
-      {/* ─── TOP BAR / TAURI DRAG REGION ───────────────────────────── */}
-      <div className="mitra-topbar" data-tauri-drag-region>
-        <div className="mitra-brand">
-          <div className="mitra-gemini-sparkle">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M12 2L14.2 9.8L22 12L14.2 14.2L12 22L9.8 14.2L2 12L9.8 9.8L12 2Z"
-                fill="url(#sparkle-gradient)"
-              />
-              <defs>
-                <linearGradient id="sparkle-gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#38bdf8" />
-                  <stop offset="0.5" stopColor="#818cf8" />
-                  <stop offset="1" stopColor="#ec4899" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <div className="mitra-title-group">
-            <span className="mitra-title-text">MITRA</span>
-            <span className="mitra-subtitle">PROJECT SAHACHARA • PHASE 1</span>
-          </div>
-        </div>
+    <div className="w-screen h-screen bg-black text-white flex flex-col items-center justify-center p-4 selection:bg-indigo-500/30 font-sans">
+      {/* Dynamic Floating Pill Container */}
+      <motion.div
+        layout
+        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        className="w-[390px] max-w-[95vw] bg-neutral-950/95 border border-white/10 rounded-[32px] p-5 shadow-[0_0_50px_rgba(0,0,0,0.9)] backdrop-blur-3xl relative overflow-hidden flex flex-col items-center"
+      >
+        {/* Subtle Gemini top ambient illumination beam */}
+        <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-sky-400/30 to-transparent" />
 
-        <div className="mitra-header-actions">
-          {/* Quick Biometric Lock Status */}
+        {/* Top Control Bar */}
+        <div className="w-full flex items-center justify-between mb-3 px-1">
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-indigo-500 via-sky-400 to-purple-500 flex items-center justify-center shadow-lg shadow-sky-500/20">
+              <Sparkles size={13} className="text-white" />
+            </div>
+            <span className="text-xs font-bold tracking-wider text-white font-mono uppercase">
+              MITRA
+            </span>
+          </div>
+
+          {/* State Indicator */}
           <div
-            title={isEnrolled ? "Biometric Speaker Verification Active" : "Voiceprint Not Enrolled"}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: 10,
-              padding: "3px 8px",
-              borderRadius: 12,
-              background: isEnrolled ? "rgba(52, 211, 153, 0.15)" : "rgba(251, 191, 36, 0.15)",
-              color: isEnrolled ? "#34d399" : "#fbbf24",
-              border: `1px solid ${isEnrolled ? "rgba(52, 211, 153, 0.3)" : "rgba(251, 191, 36, 0.3)"}`,
-            }}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wider uppercase border transition-all ${badge.color}`}
           >
-            {isEnrolled ? "🔒 Verified" : "⚠️ Enrol"}
+            <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+            <span>{badge.label}</span>
           </div>
 
-          <button
-            className="icon-button"
-            title="Toggle Thinking Mode"
-            onClick={() => setMitraState(isThinking ? "ActiveListening" : "DeepProcessing")}
-          >
-            🧠
-          </button>
+          {/* Controls */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white flex items-center justify-center transition-colors border border-white/5"
+              title={isMuted ? "Unmute Mic" : "Mute Mic"}
+            >
+              {isMuted ? <MicOff size={13} className="text-rose-400" /> : <Mic size={13} />}
+            </button>
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white flex items-center justify-center transition-colors border border-white/5"
+              title="Settings"
+            >
+              <SlidersHorizontal size={13} />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* ─── CENTRAL PUBLICATION-GRADE THINKING ORB ─────────────────── */}
-      <div className="orb-stage-container">
-        <ThinkingOrb
-          state={mitraState}
-          audioLevel={audioLevel}
-          size={190}
-          onClick={handleToggleWake}
-        />
+        {/* Center Stage — Gemini Thinking Orb */}
+        <div className="py-2 relative flex flex-col items-center justify-center">
+          <GeminiThinkingOrb
+            state={mitraState}
+            audioLevel={audioLevel}
+            size={180}
+            onClick={toggleWakeListening}
+          />
 
-        <div className={`orb-status-pill ${statusClass}`}>
-          <span className="status-pulse-dot" />
-          <span>{statusLabel}</span>
+          {/* Minimal prompt cue below orb */}
+          <div className="mt-1 text-[11px] text-neutral-400 font-medium tracking-wide flex items-center gap-1.5">
+            <span>{recentLog}</span>
+          </div>
         </div>
-      </div>
 
-      {/* ─── LIVE AUDIO REACTIVE SPECTRUM WAVE ─────────────────────── */}
-      <div style={{ margin: "0 20px 10px" }}>
-        <AudioVisualizer level={audioLevel} isActive={!isIdle} height={28} barCount={26} />
-      </div>
-
-      {/* ─── GEMINI STYLE CONVERSATIONAL PROMPT PILL ────────────────── */}
-      <div className="dynamic-prompt-pill">
-        <div className="prompt-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-          </svg>
+        {/* Real-time Audio Level Meter (minimalist line) */}
+        <div className="w-48 h-0.5 bg-white/10 rounded-full mt-2 mb-4 overflow-hidden">
+          <motion.div
+            className="h-full bg-gradient-to-r from-sky-400 to-indigo-500"
+            style={{ width: `${Math.max(8, audioLevel * 100)}%` }}
+            transition={{ ease: "easeOut", duration: 0.08 }}
+          />
         </div>
-        <div className="prompt-text">
-          {isIdle ? 'Say "Hey Mitra" or "Okay Mitra"' : 'Listening... speak naturally'}
-        </div>
-        <div style={{ fontSize: 10, color: "#64748b", fontFamily: "var(--font-mono)" }}>
-          16kHz
-        </div>
-      </div>
 
-      {/* ─── PRIMARY ACTIONS (Wake / Sleep) ─────────────────────────── */}
-      <div className="primary-actions-row">
-        <button
-          className="btn-gemini-action btn-gemini-wake"
-          onClick={handleToggleWake}
-          id="btn-main-toggle"
-        >
-          {isIdle ? "🎙️ Wake Mitra" : "🌙 Go to Sleep"}
-        </button>
-      </div>
-
-      {/* ─── TAB NAVIGATION ─────────────────────────────────────────── */}
-      <div className="drawer-tabs">
-        <button
-          className={`tab-btn ${activeTab === "live" ? "active" : ""}`}
-          onClick={() => setActiveTab("live")}
-        >
-          ⚡ Live Feed
-        </button>
-        <button
-          className={`tab-btn ${activeTab === "biometrics" ? "active" : ""}`}
-          onClick={() => setActiveTab("biometrics")}
-        >
-          👤 Voiceprint
-        </button>
-        <button
-          className={`tab-btn ${activeTab === "telemetry" ? "active" : ""}`}
-          onClick={() => setActiveTab("telemetry")}
-        >
-          📊 Telemetry
-        </button>
-      </div>
-
-      {/* ─── EXPANDABLE TAB CONTENT ─────────────────────────────────── */}
-      <div className="drawer-content">
-        {activeTab === "live" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {lastWakeEvent && (
-              <div
-                style={{
-                  background: "rgba(56, 189, 248, 0.12)",
-                  border: "1px solid rgba(56, 189, 248, 0.3)",
-                  borderRadius: 10,
-                  padding: "8px 10px",
-                  fontSize: 11,
-                  color: "#38bdf8",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
+        {/* Active Action Cards Layer */}
+        <div className="w-full space-y-2.5">
+          <AnimatePresence>
+            {/* Tier-1 Approval & 10s Undo Card */}
+            {activeAction && (
+              <UndoActionCard
+                key={activeAction.actionId}
+                action={activeAction}
+                onApprove={() => {
+                  setActiveAction({
+                    ...activeAction,
+                    status: "in_undo_window",
+                    expiresAt: Date.now() + 10000,
+                  });
                 }}
-              >
-                <span>🎙️ Wake: <strong>"{lastWakeEvent.phrase}"</strong></span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10 }}>
-                  {(lastWakeEvent.score * 100).toFixed(0)}% Match
-                </span>
-              </div>
+                onReject={() => setActiveAction(null)}
+              />
             )}
 
-            {recentEvents.map((ev, idx) => (
-              <div
-                key={idx}
-                style={{
-                  fontSize: 11,
-                  color: idx === 0 ? "#cbd5e1" : "#64748b",
-                  padding: "4px 6px",
-                  borderRadius: 6,
-                  background: idx === 0 ? "rgba(255, 255, 255, 0.03)" : "transparent",
-                  fontFamily: "var(--font-mono)",
-                }}
-              >
-                {ev}
-              </div>
+            {/* Pre-Meeting Briefing Card */}
+            {dossier && (
+              <MeetingDossierCard
+                key={dossier.eventId}
+                dossier={dossier}
+                onDismiss={() => setDossier(null)}
+              />
+            )}
+
+            {/* Ghost Radar Commitments */}
+            {commitments.map((com) => (
+              <GhostRadarCard key={com.id} commitment={com} />
             ))}
-          </div>
-        )}
 
-        {activeTab === "biometrics" && (
-          <div className="voiceprint-card">
-            <div className="voiceprint-header">
-              <span style={{ fontSize: 12, fontWeight: 600 }}>Speaker Biometric Auth</span>
-              <span className={`voiceprint-badge ${isEnrolled ? "badge-verified" : "badge-unregistered"}`}>
-                {isEnrolled ? "Enrolled (192-dim)" : "Unregistered"}
-              </span>
-            </div>
+            {/* Clipboard Augmenter */}
+            {clipboardData && (
+              <ClipboardAugmenterCard
+                key="clipboard-card"
+                data={clipboardData}
+                onFormatTable={() => {
+                  setRecentLog("Formatted Markdown Table");
+                  setClipboardData(null);
+                }}
+                onSummarize={() => {
+                  setRecentLog("Summarized to Bullets");
+                  setClipboardData(null);
+                }}
+                onDismiss={() => setClipboardData(null)}
+              />
+            )}
+          </AnimatePresence>
+        </div>
 
-            {calibrationStep === -1 ? (
-              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+        {/* Settings Drawer (Foldable) */}
+        <AnimatePresence>
+          {showSettings && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="w-full mt-4 pt-3 border-t border-white/10 text-xs text-neutral-400 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <span>Acoustic Echo Cancellation</span>
                 <button
-                  className="btn-gemini-action btn-gemini-wake"
-                  onClick={handleStartCalibration}
-                  style={{ padding: "7px 12px", fontSize: 11 }}
-                  id="btn-enroll"
+                  onClick={() => setAecActive(!aecActive)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono border ${
+                    aecActive
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                      : "bg-white/5 text-neutral-400 border-white/10"
+                  }`}
                 >
-                  {isEnrolled ? "Re-Calibrate Voiceprint" : "Begin 3-Step Enrollment"}
-                </button>
-                {isEnrolled && (
-                  <button
-                    className="btn-gemini-action btn-gemini-sleep"
-                    onClick={handleResetVoiceprint}
-                    style={{ padding: "7px 10px", fontSize: 11 }}
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div>
-                <div style={{ fontSize: 11, color: "#38bdf8", fontWeight: 600 }}>
-                  Prompt {calibrationStep + 1} of 3
-                </div>
-                <div className="calibration-prompt-box">
-                  "{CALIBRATION_PROMPTS[calibrationStep]}"
-                </div>
-                <button
-                  className="btn-gemini-action btn-gemini-wake"
-                  onClick={handleRecordPrompt}
-                  style={{ width: "100%", padding: "8px 12px", fontSize: 11 }}
-                  id="btn-record-step"
-                >
-                  ● Record Sample {calibrationStep + 1}
+                  {aecActive ? "Enabled" : "Disabled"}
                 </button>
               </div>
-            )}
 
-            {calibrationStatus && (
-              <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4 }}>
-                {calibrationStatus}
+              <div className="flex items-center justify-between">
+                <span>Zero-Knowledge Privacy</span>
+                <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-mono">
+                  <Shield size={11} />
+                  <span>Enclave Active</span>
+                </div>
               </div>
-            )}
-          </div>
-        )}
 
-        {activeTab === "telemetry" && (
-          <div className="telemetry-grid">
-            <div className="telemetry-cell">
-              <span className="telemetry-label">VAD Engine</span>
-              <span className="telemetry-value">Silero ONNX (32ms)</span>
-            </div>
-            <div className="telemetry-cell">
-              <span className="telemetry-label">Wake Word IPC</span>
-              <span className="telemetry-value">Port 8765 (TCP)</span>
-            </div>
-            <div className="telemetry-cell">
-              <span className="telemetry-label">Audio Sample Rate</span>
-              <span className="telemetry-value">16,000 Hz Mono</span>
-            </div>
-            <div className="telemetry-cell">
-              <span className="telemetry-label">Database Store</span>
-              <span className="telemetry-value">SQLite WAL + Keyring</span>
-            </div>
-            <div className="telemetry-cell">
-              <span className="telemetry-label">Biometric Model</span>
-              <span className="telemetry-value">ECAPA-TDNN 192-d</span>
-            </div>
-            <div className="telemetry-cell">
-              <span className="telemetry-label">Loop Latency</span>
-              <span className="telemetry-value">&lt; 80ms target</span>
-            </div>
-          </div>
-        )}
-      </div>
+              <div className="pt-1 flex items-center justify-between">
+                <button
+                  onClick={toggleWakeListening}
+                  className="w-full py-1.5 bg-white/5 hover:bg-white/10 text-neutral-300 rounded-xl border border-white/5 flex items-center justify-center gap-1.5 transition-colors text-[11px]"
+                >
+                  <RefreshCw size={11} />
+                  <span>Cycle Wake State</span>
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
-      {/* ─── FOOTER HOTKEY TIP ──────────────────────────────────────── */}
-      <div className="mitra-footer-tip">
-        <span>Global summon shortcut</span>
-        <span className="kbd-badge">Ctrl + Space</span>
-      </div>
+      {/* Permission Consent Modal */}
+      <PermissionConsentModal
+        isOpen={showConsentModal}
+        onClose={() => setShowConsentModal(false)}
+        onGranted={() => setShowConsentModal(false)}
+      />
     </div>
   );
 }

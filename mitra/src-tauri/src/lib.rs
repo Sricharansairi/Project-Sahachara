@@ -2,9 +2,11 @@
 // Module declarations and Tauri app builder
 
 pub mod audio;
+pub mod auth;
 pub mod biometrics;
 pub mod commands;
 pub mod db;
+pub mod screen;
 pub mod state;
 pub mod wake_word;
 
@@ -14,7 +16,7 @@ use tokio::sync::Mutex;
 use tracing::info;
 
 use crate::{
-    audio::{capture::AudioCaptureEngine, ring_buffer::RingBuffer, vad::SileroVAD},
+    audio::{aec::AecGate, capture::AudioCaptureEngine, ring_buffer::RingBuffer, tts_player::TtsPlayer, vad::SileroVAD},
     biometrics::voiceprint::VoiceprintEngine,
     db::store::MitraStore,
     state::machine::StateMachine,
@@ -29,6 +31,9 @@ pub struct AppState {
     pub vad: Arc<Mutex<SileroVAD>>,
     pub voiceprint_engine: Arc<Mutex<VoiceprintEngine>>,
     pub wake_word_detector: Arc<Mutex<WakeWordDetector>>,
+    // Phase 4: Voice pipeline
+    pub tts_player: Arc<TtsPlayer>,
+    pub aec_gate: Arc<AecGate>,
 }
 
 /// Tauri application entry point
@@ -80,6 +85,10 @@ pub fn run() {
                 Arc::clone(&store),
             )));
 
+            // Phase 4: AEC gate + TTS player
+            let aec_gate = Arc::new(AecGate::new(200)); // 200ms re-arm delay
+            let tts_player = Arc::new(TtsPlayer::new(Arc::clone(&aec_gate)));
+
             let app_state = AppState {
                 store,
                 state_machine: Arc::clone(&state_machine),
@@ -87,6 +96,8 @@ pub fn run() {
                 vad: Arc::clone(&vad),
                 voiceprint_engine: Arc::clone(&voiceprint_engine),
                 wake_word_detector: Arc::clone(&wake_word_detector),
+                tts_player: Arc::clone(&tts_player),
+                aec_gate: Arc::clone(&aec_gate),
             };
 
             app.manage(app_state);
@@ -143,6 +154,19 @@ pub fn run() {
             commands::finish_calibration,
             commands::reset_voiceprint,
             commands::is_voiceprint_enrolled,
+            commands::get_permission,
+            commands::set_permission,
+            commands::auth_start_flow,
+            commands::auth_exchange_code,
+            commands::auth_silent_refresh,
+            commands::screen_set_shutter,
+            commands::screen_capture_focused,
+            // Phase 4: Voice pipeline
+            commands::voice_transcribe,
+            commands::voice_synthesize,
+            commands::voice_pipeline_run,
+            commands::aec_status,
+            commands::voice_interrupt,
         ])
         .run(tauri::generate_context!())
         .expect("Error while running MITRA");

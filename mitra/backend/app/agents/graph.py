@@ -77,7 +77,7 @@ async def node_memory_search(state: MitraState) -> dict:
 
 INTENT_SYSTEM = """You are an intent classifier for an AI assistant.
 Classify the user intent into EXACTLY one of:
-  answer_question | draft_email | create_calendar | trigger_n8n | summarize_screen | search_memory | unknown
+  answer_question | draft_email | create_calendar | trigger_n8n | summarize_screen | search_memory | search_documents | unknown
 Respond ONLY with the intent label — no explanation."""
 
 
@@ -94,10 +94,15 @@ async def node_intent_router(state: MitraState) -> dict:
     intent = response.strip().lower()
     valid_intents = {
         "answer_question", "draft_email", "create_calendar",
-        "trigger_n8n", "summarize_screen", "search_memory", "unknown",
+        "trigger_n8n", "summarize_screen", "search_memory", "search_documents", "unknown",
     }
     if intent not in valid_intents:
-        intent = "answer_question"
+        # Check simple keywords if LLM returned unknown or general text
+        lower_input = state["user_input"].lower()
+        if any(w in lower_input for w in ["find", "search", "lookup", "locate"]) and any(w in lower_input for w in ["report", "doc", "file", "deck", "slide"]):
+            intent = "search_documents"
+        else:
+            intent = "answer_question"
     logger.info("graph.intent", intent=intent)
     return {"intent": intent}
 
@@ -202,6 +207,17 @@ async def node_trigger_n8n(state: MitraState) -> dict:
     return {"pending_approval": approval, "tool_result": ""}
 
 
+async def node_search_documents(state: MitraState) -> dict:
+    from app.connectors.search import search_engine
+    results = search_engine.search_everything(state["user_input"], top_k=3)
+    if results:
+        top_doc = results[0]
+        summary = f"Found '{top_doc['title']}' ({top_doc['source']}):\n{top_doc['text']}"
+    else:
+        summary = "No matching documents found across connected storage."
+    return {"final_response": summary, "tool_result": summary}
+
+
 # ---------------------------------------------------------------------------
 # Routing logic
 # ---------------------------------------------------------------------------
@@ -218,6 +234,7 @@ def route_after_intent(state: MitraState) -> str:
         "create_calendar": "create_calendar",
         "trigger_n8n":     "trigger_n8n",
         "summarize_screen":"summarize_screen",
+        "search_documents":"search_documents",
         "search_memory":   "answer_question",  # memory context already attached
         "unknown":         "answer_question",
     }
@@ -244,6 +261,7 @@ def build_mitra_graph() -> Any:
     builder.add_node("draft_email",     node_draft_email)
     builder.add_node("create_calendar", node_create_calendar)
     builder.add_node("trigger_n8n",     node_trigger_n8n)
+    builder.add_node("search_documents",node_search_documents)
     builder.add_node("blocked",         node_blocked)
 
     # Entry
@@ -265,10 +283,11 @@ def build_mitra_graph() -> Any:
             "create_calendar": "create_calendar",
             "trigger_n8n":     "trigger_n8n",
             "summarize_screen":"summarize_screen",
+            "search_documents":"search_documents",
         },
     )
     # All tool nodes → END
-    for node in ["answer_question", "summarize_screen", "draft_email", "create_calendar", "trigger_n8n", "blocked"]:
+    for node in ["answer_question", "summarize_screen", "draft_email", "create_calendar", "trigger_n8n", "search_documents", "blocked"]:
         builder.add_edge(node, END)
 
     return builder.compile()

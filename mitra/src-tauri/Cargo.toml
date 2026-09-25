@@ -59,6 +59,17 @@ chrono = { version = "0.4", features = ["serde"] }
 bytemuck = "1"
 hound = "3"  # WAV file I/O for test fixtures
 
+# Phase 4: TTS audio playback + AEC
+rodio = "0.19"
+bytes = "1"
+
+# Phase 3: Auth & Security & Screen
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+regex = "1.10"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3"

@@ -1,12 +1,12 @@
 """
-MITRA Backend — FastAPI Application Entry Point (Phase 2)
+MITRA Backend — FastAPI Application Entry Point (Phase 5 — Connectors & Intelligence)
 
 Features:
-  - Structured logging via structlog (JSON in production)
+  - Structured logging via structlog
   - CORS for Tauri WebView origins
   - Prometheus metrics middleware
-  - All routers: chat (SSE), tools, webhooks
-  - Health check with circuit breaker status
+  - Routers: chat, tools, webhooks, voice, tts, pipeline, connectors, intelligence
+  - Health check with circuit breaker and connector status
   - Request latency tracking
 """
 from __future__ import annotations
@@ -22,8 +22,20 @@ from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
 
 from app.config import settings
-from app.routers import chat_router, tools_router, webhooks_router
+from app.routers import (
+    chat_router,
+    tools_router,
+    webhooks_router,
+    voice_router,
+    tts_router,
+    pipeline_router,
+    connectors_router,
+    intelligence_router,
+)
 from app.models.nim_client import nim_client
+from app.connectors.search import search_engine
+from app.intelligence.ghost_radar import ghost_radar
+from app.intelligence.meeting_guard import meeting_guard
 
 # ---------------------------------------------------------------------------
 # Structlog configuration
@@ -80,8 +92,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="MITRA Cloud Brain API",
-    version="0.2.0",
-    description="FastAPI service for Project Sahachara - Phase 2: Cloud Brain + NVIDIA NIM",
+    version="0.5.0",
+    description="FastAPI service for Project Sahachara - Phase 5: Connectors, Intelligence, and Automation",
     docs_url="/docs" if settings.environment == "development" else None,
     redoc_url="/redoc" if settings.environment == "development" else None,
     lifespan=lifespan,
@@ -135,6 +147,13 @@ async def timing_middleware(request: Request, call_next):
 app.include_router(chat_router)
 app.include_router(tools_router)
 app.include_router(webhooks_router)
+# Phase 4: Voice Pipeline routers
+app.include_router(voice_router)
+app.include_router(tts_router)
+app.include_router(pipeline_router)
+# Phase 5: Connectors & Intelligence routers
+app.include_router(connectors_router)
+app.include_router(intelligence_router)
 
 # ---------------------------------------------------------------------------
 # Health check
@@ -147,6 +166,8 @@ async def health_check() -> dict:
       - App status
       - NIM API key configured
       - Circuit breaker status per role
+      - Voice pipeline config
+      - Phase 5 Connectors & Intelligence status
     """
     breaker_status = nim_client.get_breaker_status()
     any_tripped = any(v["is_open"] for v in breaker_status.values())
@@ -154,11 +175,25 @@ async def health_check() -> dict:
     return {
         "status": "ok",
         "app": settings.app_name,
-        "version": "0.2.0",
+        "version": "0.5.0",
         "environment": settings.environment,
         "nim_configured": bool(settings.nim_api_key),
         "circuit_breakers": breaker_status,
         "any_circuit_tripped": any_tripped,
+        "voice_pipeline": {
+            "stt_model": settings.model_stt,
+            "tts_primary": "kokoro-82M",
+            "tts_fallback": "cartesia/sonic-english",
+            "kokoro_url": settings.kokoro_base_url,
+            "aec_enabled": settings.aec_mute_on_tts,
+        },
+        "phase5_intelligence": {
+            "connectors": ["google_workspace", "microsoft_365", "n8n_automation"],
+            "search_chunks_indexed": len(search_engine._corpus),
+            "commitments_tracked": len(ghost_radar._commitments),
+            "meeting_guard_active": meeting_guard._is_meeting_active,
+            "undo_buffer_seconds": 10.0,
+        },
     }
 
 
@@ -174,13 +209,6 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         content={"error": "internal_server_error", "detail": str(exc)},
     )
 
-
-# Startup/Shutdown handled by lifespan context manager above
-
-
-# ---------------------------------------------------------------------------
-# Dev entrypoint
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     import uvicorn
