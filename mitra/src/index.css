@@ -2,38 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-/* MITRA — Pure Black Theme & Publication-Grade Gemini UI */
+/* MITRA — Authentic Google Gemini Minimalist Dark UI */
 
 :root {
   --bg-pure-black: #000000;
-  --bg-card: rgba(8, 8, 12, 0.88);
-  --bg-card-hover: rgba(16, 16, 24, 0.92);
-  --bg-pill: rgba(12, 12, 18, 0.75);
+  --bg-surface: #1e1f20;
+  --bg-surface-hover: #282a2c;
+  --bg-surface-secondary: #131314;
   
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-highlight: rgba(255, 255, 255, 0.16);
-  --border-focus: rgba(99, 102, 241, 0.5);
+  --border-active: rgba(255, 255, 255, 0.16);
+  --border-focus: #8ab4f8;
 
-  --accent-cyan: #38bdf8;
-  --accent-blue: #60a5fa;
-  --accent-indigo: #818cf8;
-  --accent-purple: #c084fc;
-  --accent-pink: #f472b6;
-  --accent-amber: #fbbf24;
-  --accent-emerald: #34d399;
+  --accent-blue: #8ab4f8;
+  --accent-green: #34a853;
+  --accent-red: #ea4335;
 
-  --text-primary: #ffffff;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #f1f3f4;
+  --text-secondary: #9aa0a6;
+  --text-muted: #5f6368;
 
   --radius-full: 9999px;
   --radius-pill: 28px;
-  --radius-card: 20px;
-  --radius-btn: 12px;
+  --radius-card: 16px;
+  --radius-btn: 10px;
 
-  --font-display: 'Outfit', 'Inter', system-ui, sans-serif;
+  --font-display: 'Google Sans', 'Inter', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-mono: 'Roboto Mono', monospace;
 }
 
 * {
@@ -58,18 +54,14 @@ html, body {
 
 /* ─── APP WRAPPER & DRAG REGION ─────────────────────────────────────────── */
 .mitra-app-window {
-  width: 380px;
+  width: 420px;
   max-height: 94vh;
   display: flex;
   flex-direction: column;
   background: var(--bg-pure-black);
   border: 1px solid var(--border-subtle);
-  border-radius: 32px;
-  box-shadow: 
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 24px 60px -12px rgba(0, 0, 0, 0.95),
-    0 0 40px -8px rgba(79, 70, 229, 0.22);
-  backdrop-filter: blur(40px);
+  border-radius: 28px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
   position: relative;
   overflow: hidden;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);

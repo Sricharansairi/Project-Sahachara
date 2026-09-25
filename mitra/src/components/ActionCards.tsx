@@ -21,7 +21,7 @@ import {
 } from "../store/useMitraStore";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. Tier-1 Approval & 10-Second Undo Action Card
+// 1. Tier-1 Approval & 10-Second Undo Action Card (Google Gemini Style)
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface UndoCardProps {
@@ -55,13 +55,13 @@ export const UndoActionCard: React.FC<UndoCardProps> = ({
   const getActionIcon = () => {
     switch (action.actionType) {
       case "draft_email":
-        return <Mail size={16} className="text-sky-400" />;
+        return <Mail size={15} className="text-[#8ab4f8]" />;
       case "create_calendar":
-        return <Calendar size={16} className="text-indigo-400" />;
+        return <Calendar size={15} className="text-[#8ab4f8]" />;
       case "trigger_n8n":
-        return <Zap size={16} className="text-amber-400" />;
+        return <Zap size={15} className="text-[#fdd663]" />;
       default:
-        return <CheckCheck size={16} className="text-emerald-400" />;
+        return <CheckCheck size={15} className="text-[#34a853]" />;
     }
   };
 
@@ -69,17 +69,17 @@ export const UndoActionCard: React.FC<UndoCardProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.96 }}
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -8, scale: 0.96 }}
-      transition={{ type: "spring", stiffness: 420, damping: 28 }}
-      className="w-full bg-neutral-950/90 border border-white/10 rounded-2xl p-4 shadow-2xl backdrop-blur-2xl relative overflow-hidden"
+      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+      className="w-full bg-[#1e1f20] border border-white/[0.08] rounded-2xl p-3.5 shadow-md relative overflow-hidden"
     >
-      {/* 10-Second Undo Progress Bar */}
+      {/* 10-Second Undo Flat Minimal Progress Bar */}
       {action.status === "in_undo_window" && (
-        <div className="absolute top-0 left-0 right-0 h-1 bg-white/5">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/[0.06]">
           <motion.div
-            className="h-full bg-gradient-to-r from-sky-400 via-indigo-500 to-purple-500"
+            className="h-full bg-[#8ab4f8]"
             style={{ width: `${progressPercent}%` }}
             transition={{ ease: "linear", duration: 0.05 }}
           />
@@ -88,19 +88,19 @@ export const UndoActionCard: React.FC<UndoCardProps> = ({
 
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
             {getActionIcon()}
           </div>
           <div>
-            <div className="text-xs font-semibold text-white tracking-wide flex items-center gap-2">
-              {action.title}
+            <div className="text-xs font-medium text-[#f1f3f4] flex items-center gap-2">
+              <span>{action.title}</span>
               {action.status === "in_undo_window" && (
-                <span className="text-[10px] font-mono text-neutral-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
+                <span className="text-[10px] font-mono text-[#9aa0a6] bg-white/[0.04] px-1.5 py-0.2 rounded border border-white/[0.05]">
                   {secondsRemaining.toFixed(1)}s
                 </span>
               )}
             </div>
-            <div className="text-[11px] text-neutral-400 mt-0.5 line-clamp-2">
+            <div className="text-[11px] text-[#9aa0a6] mt-0.5 line-clamp-2 leading-relaxed">
               {action.description}
             </div>
           </div>
@@ -110,34 +110,34 @@ export const UndoActionCard: React.FC<UndoCardProps> = ({
         {action.status === "in_undo_window" && (
           <button
             onClick={() => rollbackAction(action.actionId)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/15 active:bg-white/20 border border-white/15 rounded-xl text-xs font-medium text-white transition-all"
+            className="flex items-center gap-1.5 px-3 py-1 bg-white/[0.08] hover:bg-white/[0.12] active:bg-white/[0.16] border border-white/[0.1] rounded-full text-xs font-medium text-[#f1f3f4] transition-colors flex-shrink-0"
             title="Press Ctrl+Z to undo"
           >
-            <Undo2 size={13} />
+            <Undo2 size={12} className="text-[#8ab4f8]" />
             <span>Undo</span>
           </button>
         )}
 
         {action.status === "pending_approval" && (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
               onClick={onReject}
-              className="w-7 h-7 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 flex items-center justify-center transition-all"
+              className="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-rose-500/20 text-[#9aa0a6] hover:text-rose-400 border border-white/[0.08] flex items-center justify-center transition-colors"
             >
-              <X size={14} />
+              <X size={13} />
             </button>
             <button
               onClick={onApprove}
-              className="w-7 h-7 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 flex items-center justify-center transition-all"
+              className="w-7 h-7 rounded-full bg-[#8ab4f8]/15 hover:bg-[#8ab4f8]/25 text-[#8ab4f8] border border-[#8ab4f8]/30 flex items-center justify-center transition-colors"
             >
-              <Check size={14} />
+              <Check size={13} />
             </button>
           </div>
         )}
 
         {action.status === "rolled_back" && (
-          <div className="flex items-center gap-1.5 text-xs text-neutral-400 font-medium">
-            <Check size={13} className="text-emerald-400" />
+          <div className="flex items-center gap-1 text-xs text-[#9aa0a6] font-medium flex-shrink-0">
+            <Check size={13} className="text-[#34a853]" />
             <span>Undone</span>
           </div>
         )}
@@ -161,40 +161,40 @@ export const MeetingDossierCard: React.FC<DossierCardProps> = ({
 }) => {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.96 }}
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -8, scale: 0.96 }}
-      className="w-full bg-neutral-950/90 border border-white/10 rounded-2xl p-4 shadow-2xl backdrop-blur-2xl"
+      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+      className="w-full bg-[#1e1f20] border border-white/[0.08] rounded-2xl p-3.5 shadow-md"
     >
-      <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/5">
+      <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[0.06]">
         <div className="flex items-center gap-2">
-          <Calendar size={15} className="text-indigo-400" />
-          <span className="text-xs font-semibold text-white tracking-wide">
+          <Calendar size={14} className="text-[#8ab4f8]" />
+          <span className="text-xs font-medium text-[#f1f3f4]">
             Pre-Meeting Briefing
           </span>
-          <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+          <span className="text-[10px] text-[#8ab4f8] bg-[#8ab4f8]/10 px-2 py-0.5 rounded-full border border-[#8ab4f8]/20">
             In 2 mins
           </span>
         </div>
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="text-neutral-500 hover:text-white transition-colors"
+            className="text-[#9aa0a6] hover:text-[#f1f3f4] transition-colors"
           >
-            <X size={14} />
+            <X size={13} />
           </button>
         )}
       </div>
 
-      <div className="text-xs font-medium text-neutral-200 mb-2">
+      <div className="text-xs font-medium text-[#f1f3f4] mb-2">
         {dossier.title}
       </div>
 
-      <div className="flex flex-wrap gap-1 mb-3">
+      <div className="flex flex-wrap gap-1 mb-2.5">
         {dossier.attendees.map((att, idx) => (
           <span
             key={idx}
-            className="text-[10px] text-neutral-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/5"
+            className="text-[10px] text-[#9aa0a6] bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/[0.05]"
           >
             {att}
           </span>
@@ -203,9 +203,9 @@ export const MeetingDossierCard: React.FC<DossierCardProps> = ({
 
       <div className="space-y-1.5">
         {dossier.bullets.map((bullet, idx) => (
-          <div key={idx} className="flex items-start gap-2 text-[11px] text-neutral-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1 flex-shrink-0" />
-            <span className="leading-snug">{bullet.replace(/^[-*•]\s*/, "")}</span>
+          <div key={idx} className="flex items-start gap-2 text-[11px] text-[#bdc1c6]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#8ab4f8] mt-1.5 flex-shrink-0" />
+            <span className="leading-relaxed">{bullet.replace(/^[-*•]\s*/, "")}</span>
           </div>
         ))}
       </div>
@@ -229,48 +229,48 @@ export const GhostRadarCard: React.FC<CommitmentCardProps> = ({ commitment }) =>
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.97 }}
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -6, scale: 0.97 }}
-      className="w-full bg-neutral-950/85 border border-white/10 rounded-2xl p-3.5 shadow-xl backdrop-blur-xl"
+      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+      className="w-full bg-[#1e1f20] border border-white/[0.08] rounded-2xl p-3.5 shadow-md"
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span
-            className={`text-[10px] font-semibold tracking-wider px-2 py-0.5 rounded-md uppercase border ${
+            className={`text-[10px] font-medium tracking-wide px-2 py-0.5 rounded-full border ${
               isOutbound
-                ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
-                : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                ? "bg-[#8ab4f8]/10 text-[#8ab4f8] border-[#8ab4f8]/20"
+                : "bg-[#fdd663]/10 text-[#fdd663] border-[#fdd663]/20"
             }`}
           >
             {isOutbound ? "Outbound" : "Inbound"}
           </span>
-          <span className="text-[11px] font-medium text-neutral-300 truncate max-w-[160px]">
+          <span className="text-[11px] text-[#9aa0a6] truncate max-w-[170px]">
             {commitment.party}
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => snoozeCommitment(commitment.id)}
-            className="flex items-center gap-1 px-2 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] text-neutral-400 hover:text-white transition-colors border border-white/5"
+            className="flex items-center gap-1 px-2 py-0.5 bg-white/[0.04] hover:bg-white/[0.08] rounded-full text-[10px] text-[#9aa0a6] hover:text-[#f1f3f4] transition-colors border border-white/[0.06]"
             title="Snooze for 2 hours"
           >
-            <Clock size={11} />
+            <Clock size={10} />
             <span>2h</span>
           </button>
           <button
             onClick={() => resolveCommitment(commitment.id)}
-            className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg text-[10px] text-emerald-400 transition-colors border border-emerald-500/20"
+            className="flex items-center gap-1 px-2 py-0.5 bg-[#34a853]/10 hover:bg-[#34a853]/20 rounded-full text-[10px] text-[#34a853] transition-colors border border-[#34a853]/20"
             title="Mark as done"
           >
-            <Check size={11} />
+            <Check size={10} />
             <span>Done</span>
           </button>
         </div>
       </div>
 
-      <div className="text-xs text-neutral-200 leading-snug">
+      <div className="text-xs text-[#f1f3f4] leading-relaxed">
         {commitment.description}
       </div>
     </motion.div>
@@ -296,23 +296,23 @@ export const ClipboardAugmenterCard: React.FC<ClipboardCardProps> = ({
 }) => {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.97 }}
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -6, scale: 0.97 }}
-      className="w-full bg-neutral-950/90 border border-white/10 rounded-2xl p-3.5 shadow-2xl backdrop-blur-2xl"
+      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+      className="w-full bg-[#1e1f20] border border-white/[0.08] rounded-2xl p-3.5 shadow-md"
     >
-      <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/5">
+      <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[0.06]">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold text-neutral-400 bg-white/5 px-2 py-0.5 rounded uppercase border border-white/5">
+          <span className="text-[10px] font-medium text-[#9aa0a6] bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06]">
             Clipboard: {data.type}
           </span>
         </div>
-        <button onClick={onDismiss} className="text-neutral-500 hover:text-white transition-colors">
+        <button onClick={onDismiss} className="text-[#9aa0a6] hover:text-[#f1f3f4] transition-colors">
           <X size={13} />
         </button>
       </div>
 
-      <div className="text-[11px] text-neutral-300 truncate mb-3 font-mono bg-white/[0.03] p-1.5 rounded-lg border border-white/5">
+      <div className="text-[11px] text-[#bdc1c6] truncate mb-2.5 font-mono bg-black/40 p-2 rounded-lg border border-white/[0.05]">
         {data.rawText.slice(0, 80)}...
       </div>
 
@@ -320,7 +320,7 @@ export const ClipboardAugmenterCard: React.FC<ClipboardCardProps> = ({
         {data.type === "table" && (
           <button
             onClick={onFormatTable}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 rounded-xl text-xs font-medium text-sky-300 transition-all"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-[#8ab4f8]/10 hover:bg-[#8ab4f8]/20 border border-[#8ab4f8]/25 rounded-full text-xs font-medium text-[#8ab4f8] transition-colors"
           >
             <FileSpreadsheet size={13} />
             <span>Format Table</span>
@@ -328,7 +328,7 @@ export const ClipboardAugmenterCard: React.FC<ClipboardCardProps> = ({
         )}
         <button
           onClick={onSummarize}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl text-xs font-medium text-neutral-200 transition-all"
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] rounded-full text-xs font-medium text-[#f1f3f4] transition-colors"
         >
           <FileText size={13} />
           <span>Summarize</span>
