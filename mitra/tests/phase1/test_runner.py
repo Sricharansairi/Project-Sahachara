@@ -38,10 +38,9 @@ def test_rust_suite():
         for l in lines:
             print(f"  ✓ {l}")
         print("  ✅ All Rust Phase 1 tests passed (25/25)")
-        return True
     else:
         print(f"  ❌ Rust tests failed:\n{res.stderr}")
-        return False
+    assert res.returncode == 0, f"Cargo tests failed: {res.stderr}"
 
 def test_frontend_build():
     print_header("2. Frontend Pure Black UI Build (TypeScript + Vite)")
@@ -55,10 +54,10 @@ def test_frontend_build():
         assert index_html.exists(), "dist/index.html missing"
         print(f"  ✓ Verified dist bundle: {index_html.name} present")
         print("  ✅ Frontend build test passed")
-        return True
     else:
         print(f"  ❌ Frontend build failed:\n{res.stderr}\n{res.stdout}")
-        return False
+    assert res.returncode == 0, f"Frontend build failed: {res.stderr}"
+
 
 def test_sqlite_schema():
     print_header("3. SQLite Storage Engine & Keyring Migrations")
@@ -114,7 +113,6 @@ def test_sqlite_schema():
 
         conn.close()
         print("  ✅ SQLite Store schema test passed")
-        return True
     finally:
         if os.path.exists(temp_db_path):
             os.remove(temp_db_path)
@@ -149,7 +147,6 @@ def test_biometric_math():
     assert abs(adapted[0] - expected) < 1e-6
     print(f"  ✓ 5% Rolling adaptation blend validated: {adapted[0]:.4f}")
     print("  ✅ Biometrics mathematical invariant test passed")
-    return True
 
 def test_fastapi_backend():
     print_header("5. FastAPI Backend Scaffold & Health Test (uv run pytest)")
@@ -160,10 +157,10 @@ def test_fastapi_backend():
         print("  ✓ FastAPI app scaffolded with CORS & health endpoint")
         print("  ✓ Backend pytest passed (1/1)")
         print("  ✅ FastAPI backend test passed")
-        return True
     else:
         print(f"  ❌ Backend test failed:\n{res.stderr}\n{res.stdout}")
-        return False
+    assert res.returncode == 0, f"Backend test failed: {res.stderr}"
+
 
 def main():
     print("\n" + "="*70)

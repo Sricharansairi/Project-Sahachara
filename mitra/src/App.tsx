@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,13 +7,8 @@ import {
   MicOff,
   SlidersHorizontal,
   Shield,
-  Volume2,
-  VolumeX,
   Sparkles,
-  ChevronDown,
-  ChevronUp,
   RefreshCw,
-  Zap,
 } from "lucide-react";
 
 import { GeminiThinkingOrb } from "./components/GeminiThinkingOrb";
@@ -34,8 +29,6 @@ export default function App() {
     setAudioLevel,
     aecActive,
     setAecActive,
-    transcript,
-    setTranscript,
     activeAction,
     setActiveAction,
     dossier,
@@ -169,6 +162,16 @@ export default function App() {
         {/* Subtle Gemini top ambient illumination beam */}
         <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-sky-400/30 to-transparent" />
 
+        {/* Phase 3 & 6 Privacy Ring Indicator */}
+        <div
+          data-testid="privacy-ring-indicator"
+          className={`privacy-ring absolute inset-0 rounded-[32px] pointer-events-none transition-opacity duration-300 ${
+            !isMuted && mitraState !== "IdleSleep"
+              ? "ring-2 ring-[#10b981] opacity-100 shadow-[0_0_20px_#10b981]"
+              : "opacity-0"
+          }`}
+        />
+
         {/* Top Control Bar */}
         <div className="w-full flex items-center justify-between mb-3 px-1">
           {/* Logo & Brand */}
@@ -197,6 +200,13 @@ export default function App() {
               title={isMuted ? "Unmute Mic" : "Mute Mic"}
             >
               {isMuted ? <MicOff size={13} className="text-rose-400" /> : <Mic size={13} />}
+            </button>
+            <button
+              onClick={() => setShowConsentModal(true)}
+              className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white flex items-center justify-center transition-colors border border-white/5"
+              title="Permissions & Privacy"
+            >
+              <Shield size={13} />
             </button>
             <button
               onClick={() => setShowSettings(!showSettings)}
@@ -333,7 +343,7 @@ export default function App() {
       <PermissionConsentModal
         isOpen={showConsentModal}
         onClose={() => setShowConsentModal(false)}
-        onGranted={() => setShowConsentModal(false)}
+        onPermissionsUpdated={() => setShowConsentModal(false)}
       />
     </div>
   );

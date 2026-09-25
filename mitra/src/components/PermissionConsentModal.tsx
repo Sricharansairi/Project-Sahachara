@@ -148,7 +148,9 @@ export const PermissionConsentModal: React.FC<PermissionConsentModalProps> = ({
               local RAM. Zero audio bytes ever leave your device before the wake word is verified.
             </p>
             <div className="rounded-lg border border-neutral-800/80 bg-neutral-950 p-3 text-xs text-neutral-400 flex items-start space-x-2">
-              <span className="text-emerald-400 text-sm">🛡️</span>
+              <svg className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
               <span>Hardware-isolated buffer with automatic 3-second FIFO roll-off.</span>
             </div>
             <div className="pt-2 flex justify-end space-x-3">
@@ -187,7 +189,9 @@ export const PermissionConsentModal: React.FC<PermissionConsentModalProps> = ({
               background recording or surveillance.
             </p>
             <div className="rounded-lg border border-neutral-800/80 bg-neutral-950 p-3 text-xs text-neutral-400 flex items-start space-x-2">
-              <span className="text-emerald-400 text-sm">🔒</span>
+              <svg className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
               <span>
                 Automatic on-device privacy filter redacts credit cards, SSNs, and passwords before
                 analysis.

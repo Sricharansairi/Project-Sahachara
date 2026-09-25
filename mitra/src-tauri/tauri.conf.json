@@ -15,8 +15,8 @@
       {
         "label": "main",
         "title": "MITRA",
-        "width": 400,
-        "height": 300,
+        "width": 420,
+        "height": 520,
         "resizable": false,
         "decorations": false,
         "transparent": true,
@@ -30,10 +30,10 @@
       "iconPath": "icons/icon.png",
       "iconAsTemplate": true,
       "menuOnLeftClick": false,
-      "title": "MITRA"
+      "title": "MITRA - AI Companion"
     },
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:* ws://localhost:*;"
     }
   },
   "bundle": {
@@ -45,6 +45,15 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      },
+      "wix": {
+        "language": "en-US"
+      }
+    }
   }
 }

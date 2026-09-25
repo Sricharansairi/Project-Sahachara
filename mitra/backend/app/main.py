@@ -31,6 +31,7 @@ from app.routers import (
     pipeline_router,
     connectors_router,
     intelligence_router,
+    telemetry_router,
 )
 from app.models.nim_client import nim_client
 from app.connectors.search import search_engine
@@ -154,6 +155,9 @@ app.include_router(pipeline_router)
 # Phase 5: Connectors & Intelligence routers
 app.include_router(connectors_router)
 app.include_router(intelligence_router)
+# Phase 7: Telemetry & Privacy compliance routers
+app.include_router(telemetry_router)
+
 
 # ---------------------------------------------------------------------------
 # Health check

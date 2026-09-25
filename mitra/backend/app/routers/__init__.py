@@ -7,6 +7,7 @@ from app.routers.tts import router as tts_router
 from app.routers.pipeline import router as pipeline_router
 from app.routers.connectors import router as connectors_router
 from app.routers.intelligence import router as intelligence_router
+from app.routers.telemetry import router as telemetry_router
 
 __all__ = [
     "chat_router",
@@ -17,4 +18,6 @@ __all__ = [
     "pipeline_router",
     "connectors_router",
     "intelligence_router",
+    "telemetry_router",
 ]
+

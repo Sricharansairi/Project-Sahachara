@@ -13,7 +13,7 @@ pub const VAD_THRESHOLD: f32 = 0.5;
 pub const VAD_FRAME_SIZE: usize = 512; // samples at 16kHz = 32ms
 
 pub struct SileroVAD {
-    session: Session,
+    session: Option<Session>,
     /// Internal state tensors required by Silero VAD (h, c)
     h: Array3<f32>, // [2, 1, 64]
     c: Array3<f32>, // [2, 1, 64]
@@ -26,21 +26,31 @@ impl SileroVAD {
     pub fn new() -> Result<Self> {
         let model_path = Self::find_model_path();
 
-        if !model_path.exists() {
-            anyhow::bail!(
-                "Silero VAD model not found at {:?}. Run the model download script first.",
-                model_path
-            );
-        }
-
-        let session = Session::builder()
-            .map_err(|e| anyhow::anyhow!("Failed to create ONNX session builder: {e}"))?
-            .with_optimization_level(GraphOptimizationLevel::Level3)
-            .map_err(|e| anyhow::anyhow!("Failed to set optimization level: {e}"))?
-            .commit_from_file(&model_path)
-            .map_err(|e| anyhow::anyhow!("Failed to load Silero VAD model: {e}"))?;
-
-        tracing::info!("✅ Silero VAD loaded from {:?}", model_path);
+        let session = if model_path.exists() {
+            let res = (|| -> Result<Session> {
+                let mut builder = Session::builder()
+                    .map_err(|e| anyhow::anyhow!("{e}"))?
+                    .with_optimization_level(GraphOptimizationLevel::Level3)
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+                let sess = builder
+                    .commit_from_file(&model_path)
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+                Ok(sess)
+            })();
+            match res {
+                Ok(sess) => {
+                    tracing::info!("✅ Silero VAD loaded from {:?}", model_path);
+                    Some(sess)
+                }
+                Err(e) => {
+                    tracing::warn!("⚠️ Failed to load Silero VAD ({:?}): {}. Using energy-based fallback VAD.", model_path, e);
+                    None
+                }
+            }
+        } else {
+            tracing::warn!("⚠️ Silero VAD model not found at {:?}. Using energy-based fallback VAD.", model_path);
+            None
+        };
 
         Ok(Self {
             session,
@@ -56,6 +66,16 @@ impl SileroVAD {
         if samples.len() < VAD_FRAME_SIZE {
             return Ok(0.0); // insufficient data = treat as silence
         }
+
+        let session = match &mut self.session {
+            Some(s) => s,
+            None => {
+                // Energy-based VAD fallback
+                let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len().max(1) as f32).sqrt();
+                let prob = (rms * 25.0).min(1.0);
+                return Ok(prob);
+            }
+        };
 
         let chunk = &samples[..VAD_FRAME_SIZE];
         let input = Array2::from_shape_vec((1, VAD_FRAME_SIZE), chunk.to_vec())
@@ -73,8 +93,7 @@ impl SileroVAD {
             .context("Failed to create c tensor")?;
 
         use ort::inputs;
-        let outputs = self
-            .session
+        let outputs = session
             .run(inputs![
                 "input" => &input_val,
                 "sr" => &sr_val,
